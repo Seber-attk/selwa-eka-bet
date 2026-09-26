@@ -112,6 +112,7 @@ const productList = document.getElementById("productList");
 const saveBtn = document.getElementById("saveBtn");
 const cancelBtn = document.getElementById("cancelBtn");
 const who = document.getElementById("who");
+const nameInput = document.getElementById("name"); // NOT `name` — window.name already exists and shadows it
 
 let editingId = null;
 let pendingImageData = null; // null = untouched, "" = explicitly cleared, string = new data URL
@@ -312,7 +313,7 @@ form.addEventListener("submit", async (e) => {
   else finalImage = "";
 
   const data = {
-    name: name.value.trim(),
+    name: nameInput.value.trim(),
     category: category.value,
     price: price.value.trim(),
     imageUrl: finalImage,
@@ -358,7 +359,7 @@ window.editProduct = async function(id) {
     if (!p) return;
     const data = p.data();
     editingId = id;
-    name.value = data.name || "";
+    nameInput.value = data.name || "";
     category.value = data.category || "የምሳ ሳጥኖች";
     price.value = data.price || "";
     description.value = data.description || "";
