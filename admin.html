@@ -72,6 +72,7 @@ h1{margin:5px 0 8px;font-size:clamp(30px,6vw,48px);line-height:1.1}h2{margin-top
 </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
@@ -145,15 +146,49 @@ function fileToCompressedDataURL(file, maxDim = 900, quality = 0.72) {
   });
 }
 
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  ]);
+}
+
+function isHeic(file) {
+  const type = (file.type || "").toLowerCase();
+  return type === "image/heic" || type === "image/heif" || /\.hei[cf]$/i.test(file.name || "");
+}
+
+async function normalizeToStandardImage(file) {
+  if (!isHeic(file)) return file;
+  if (typeof window.heic2any !== "function") {
+    throw new Error("ይህ ፎቶ አይነት (HEIC) ማንበብ የሚያስችል ክፍል አልጫነም። ሌላ ፎቶ ይሞክሩ።");
+  }
+  const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+  return Array.isArray(converted) ? converted[0] : converted;
+}
+
 imageFile.addEventListener("change", async () => {
   const file = imageFile.files[0];
   if (!file) return;
   imgStatus.textContent = "ፎቶ በማዘጋጀት ላይ…";
   imgStatus.className = "status";
   try {
-    let dataUrl = await fileToCompressedDataURL(file);
+    const normalized = await withTimeout(
+      normalizeToStandardImage(file),
+      15000,
+      "ፎቶውን መቀየር ጊዜው አልፎበታል። ሌላ ፎቶ ይሞክሩ።"
+    );
+    let dataUrl = await withTimeout(
+      fileToCompressedDataURL(normalized),
+      10000,
+      "ፎቶውን ማዘጋጀት ጊዜው አልፎበታል። ሌላ ፎቶ ይሞክሩ ወይም ስክሪንሾት አድርገው ይላኩ።"
+    );
     if (dataUrl.length > 700000) {
-      dataUrl = await fileToCompressedDataURL(file, 650, 0.6);
+      dataUrl = await withTimeout(
+        fileToCompressedDataURL(normalized, 650, 0.6),
+        10000,
+        "ፎቶውን ማዘጋጀት ጊዜው አልፎበታል። ሌላ ፎቶ ይሞክሩ።"
+      );
     }
     pendingImageData = dataUrl;
     imgPreview.src = pendingImageData;
@@ -162,7 +197,7 @@ imageFile.addEventListener("change", async () => {
     imgStatus.className = "status success";
   } catch (err) {
     console.error(err);
-    imgStatus.textContent = "ፎቶውን ማዘጋጀት አልተቻለም። እባክዎ ሌላ ፎቶ ይሞክሩ።";
+    imgStatus.textContent = err.message || "ፎቶውን ማዘጋጀት አልተቻለም። እባክዎ ሌላ ፎቶ ይሞክሩ ወይም ስክሪንሾት አድርገው ይላኩ።";
     imgStatus.className = "status error";
   }
 });
