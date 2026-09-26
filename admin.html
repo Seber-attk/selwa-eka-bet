@@ -149,8 +149,26 @@ function fileToCompressedDataURL(file, maxDim = 900, quality = 0.72) {
 function withTimeout(promise, ms, message) {
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+    new Promise((_, reject) => setTimeout(() => {
+      const e = new Error(message);
+      e.isTimeout = true;
+      reject(e);
+    }, ms))
   ]);
+}
+
+function classifyError(err) {
+  if (err && err.isTimeout) {
+    return { icon: "🌐", text: "Firebase ጋር በ10 ሰከንድ ውስጥ መገናኘት አልተቻለም። ኢንተርኔትዎ ወይም ፋየርዎል ችግር ሊሆን ይችላል።" };
+  }
+  const code = err && err.code;
+  if (code === "permission-denied") {
+    return { icon: "🔐", text: "ፍቃድ ተከልክሏል፦ Firestore Rules ይህን አልፈቀዱም። (ADMIN_EMAIL እና Rules ውስጥ ያለው ኢሜይል ተመሳሳይ መሆኑን፣ Rules Publish መደረጉን ያረጋግጡ)" };
+  }
+  if (code === "unavailable" || code === "deadline-exceeded") {
+    return { icon: "🌐", text: "ከ Firestore ጋር መገናኘት አልተቻለም። ኢንተርኔትዎን ያረጋግጡ።" };
+  }
+  return { icon: "❌", text: (code ? `[${code}] ` : "") + (err && err.message ? err.message : "ያልታወቀ ስህተት ተፈጥሯል።") };
 }
 
 function isHeic(file) {
@@ -283,7 +301,7 @@ async function loadProducts() {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  formStatus.textContent = "በማስቀመጥ ላይ…";
+  formStatus.textContent = "⏳ በማስቀመጥ ላይ (እስከ 10 ሰከንድ ይጠብቁ)…";
   formStatus.className = "status";
   let finalImage;
   if (pendingImageData !== null) finalImage = pendingImageData;
@@ -300,24 +318,33 @@ form.addEventListener("submit", async (e) => {
     icon: "🛍️"
   };
   if (!data.name || !data.price) {
-    formStatus.textContent = "የዕቃ ስም እና ዋጋ ያስገቡ።";
+    formStatus.textContent = "❌ የዕቃ ስም እና ዋጋ ያስገቡ።";
     formStatus.className = "status error";
     return;
   }
   try {
     if (editingId) {
-      await updateDoc(doc(db, "products", editingId), {...data, updatedAt: serverTimestamp()});
-      formStatus.textContent = "ዕቃው ተሻሽሏል።";
+      await withTimeout(
+        updateDoc(doc(db, "products", editingId), {...data, updatedAt: serverTimestamp()}),
+        10000,
+        "ጊዜው አልፎበታል"
+      );
+      formStatus.textContent = "✅ ዕቃው ተሻሽሏል።";
     } else {
-      await addDoc(collection(db, "products"), {...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp()});
-      formStatus.textContent = "ዕቃው ተጨምሯል።";
+      await withTimeout(
+        addDoc(collection(db, "products"), {...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp()}),
+        10000,
+        "ጊዜው አልፎበታል"
+      );
+      formStatus.textContent = "✅ ዕቃው ተጨምሯል።";
     }
     formStatus.className = "status success";
     resetForm();
     await loadProducts();
   } catch (err) {
     console.error(err);
-    formStatus.textContent = err.message || "ማስቀመጥ አልተቻለም።";
+    const { icon, text } = classifyError(err);
+    formStatus.textContent = `${icon} ${text}`;
     formStatus.className = "status error";
   }
 });
