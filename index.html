@@ -24,7 +24,9 @@ footer{padding:28px 0;border-top:1px solid var(--l);color:var(--m);font-size:13p
 .admin{padding:28px}.admin small,.note{color:var(--m)}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.form .wide{grid-column:1/-1}.form input,.form textarea,.form select{width:100%;padding:11px;border:1px solid var(--l);border-radius:11px;background:white}.form textarea{min-height:85px}.list{display:grid;gap:9px;margin-top:20px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--l);padding:10px;border-radius:12px}.danger{background:#9c352f}.login{background:#f0f4f0;padding:18px;border-radius:16px;margin-top:15px}.login input{padding:10px;border:1px solid var(--l);border-radius:10px}.hidden{display:none}
 .modal{display:none;position:fixed;inset:0;background:#0a120e99;z-index:50;place-items:center;padding:20px}.modal.show{display:grid}.modalBox{background:var(--w);border-radius:24px;padding:25px;width:min(470px,100%);position:relative}.close{position:absolute;right:14px;top:8px;border:0;background:none;font-size:26px}.qty{display:flex;align-items:center;gap:14px;margin:16px 0}.qty button{width:35px;height:35px;border:1px solid var(--l);background:white;border-radius:9px}
 .wa{position:fixed;right:18px;bottom:18px;background:#1e8e55;color:white;width:55px;height:55px;border-radius:50%;display:grid;place-items:center;z-index:30;font-size:24px}
-@media(max-width:850px){nav,.nav>.btn{display:none}.menu{display:block}.heroGrid{grid-template-columns:1fr}.heroArt{height:320px}.cats,.features{grid-template-columns:1fr}.products{grid-template-columns:repeat(2,1fr)}.contact{grid-template-columns:1fr}.form{grid-template-columns:1fr}.form .wide{grid-column:auto}.head{align-items:start;flex-direction:column}}
+@media(max-width:850px){nav,.nav>.btn{display:none}.menu{display:block}.heroGrid{grid-template-columns:1fr}.heroArt{height:320px}.cats,.features{grid-template-columns:1fr}.products{grid-template-columns:repeat(2,1fr)}.contact{grid-template-columns:1fr}.form{grid-template-columns:1fr}.form .wide{grid-column:auto}.head{align-items:start;flex-direction:column}
+header.navOpen nav{display:flex;flex-direction:column;position:absolute;top:74px;left:0;right:0;background:var(--c);padding:16px 5%;border-bottom:1px solid var(--l);gap:16px;box-shadow:0 18px 40px #183f3018}
+header.navOpen .nav>.btn{display:flex;position:absolute;top:16px;right:5%}}
 @media(max-width:480px){.products{gap:10px}.photo{height:165px}.info{padding:12px}.hero{padding-top:45px}.actions>*{width:100%}.head h2{font-size:31px}}
 
 .loading{padding:35px;text-align:center;color:var(--m)}
@@ -33,10 +35,10 @@ footer{padding:28px 0;border-top:1px solid var(--l);color:var(--m);font-size:13p
 </style>
 </head>
 <body>
-<header><div class="wrap nav">
+<header id="siteHeader"><div class="wrap nav">
 <a class="brand" href="#home"><span class="logo">ሒ</span>ሒልዋ ዕቃ ቤት</a>
 <nav><a href="#home">መነሻ</a><a href="#categories">ምድቦች</a><a href="#products">ዕቃዎች</a><a href="#contact">ያግኙን</a></nav>
-<a class="btn" href="#products">ዕቃዎችን ይመልከቱ</a><button class="menu">☰</button>
+<a class="btn" href="#products">ዕቃዎችን ይመልከቱ</a><button class="menu" id="menuBtn">☰</button>
 </div></header>
 
 <main>
@@ -52,7 +54,8 @@ footer{padding:28px 0;border-top:1px solid var(--l);color:var(--m);font-size:13p
 <div class="cat" onclick="filterCat('የምሳ ሳጥኖች')"><div class="ico">🍱</div><h3>የምሳ ሳጥኖች</h3><p>ለስራ፣ ለትምህርት እና ለዕለታዊ ምግብ።</p></div>
 <div class="cat" onclick="filterCat('የወጥ ቤት ዕቃዎች')"><div class="ico">🍳</div><h3>የወጥ ቤት ዕቃዎች</h3><p>ለወጥ ቤት የሚያስፈልጉ ዕቃዎች።</p></div>
 <div class="cat" onclick="filterCat('የቤት ዕቃዎች')"><div class="ico">🏠</div><h3>የቤት ዕቃዎች</h3><p>ቤትዎን ለማደራጀት የሚረዱ ዕቃዎች።</p></div>
-</div></div></section>
+</div>
+<div style="margin-top:14px"><a class="btn alt" href="#products" onclick="showAll()" style="display:inline-flex">ሁሉንም ዕቃዎች አሳይ</a></div></div></section>
 
 <section id="products"><div class="wrap"><div class="head"><div><div class="tag">ዕቃዎች</div><h2>የሚገኙ ዕቃዎች</h2></div><p id="filterText">ዕቃዎች ከአስተዳዳሪ ፓነል በቀጥታ ይመጣሉ።</p></div>
 <div class="products" id="productsGrid"><div class="loading">ዕቃዎችን በመጫን ላይ…</div></div></div></section>
@@ -129,6 +132,16 @@ window.filterCat = function(c) {
   render(items.filter(x => x.category === c));
   productsSection.scrollIntoView({behavior:"smooth"});
 };
+
+window.showAll = function() {
+  filterText.textContent = "ዕቃዎች ከአስተዳዳሪ ፓነል በቀጥታ ይመጣሉ።";
+  render(items);
+};
+
+const menuBtn = document.getElementById("menuBtn");
+const siteHeader = document.getElementById("siteHeader");
+menuBtn.addEventListener("click", () => siteHeader.classList.toggle("navOpen"));
+document.querySelectorAll("header nav a").forEach(a => a.addEventListener("click", () => siteHeader.classList.remove("navOpen")));
 
 window.openM = function(i) {
   selected = items[i];

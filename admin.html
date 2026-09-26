@@ -45,12 +45,20 @@ h1{margin:5px 0 8px;font-size:clamp(30px,6vw,48px);line-height:1.1}h2{margin-top
 <section id="adminView" class="hidden">
 <div class="card">
 <div class="topbar"><div><span class="tag">የሱቅ አስተዳደር</span><h1>ዕቃዎችን ያስተዳድሩ</h1><p class="muted">ምርት ይጨምሩ፣ ዋጋ ይቀይሩ ወይም ዕቃ ያስወግዱ።</p></div><span id="who" class="muted"></span></div>
-<div class="note">🖼️ ለአሁኑ የፎቶ መስኩ ቀጥተኛ image URL ይቀበላል። Firebase Storage ለዚህ ፕሮጀክት አሁን Blaze plan ስለሚጠይቅ አልከፈትነውም።</div>
+<div class="note">🖼️ ፎቶ ከስልክዎ ወይም ኮምፒውተርዎ በቀጥታ ይምረጡ — ራሱ በራሱ ይጨመቃል፣ ምንም ሊንክ መፈለግ አያስፈልግም። (ወይም ካለዎት image URL መለጠፍ ይችላሉ)</div>
 <form id="productForm" class="form">
 <label>የዕቃ ስም<input id="name" required placeholder="ለምሳሌ ባለ 3 ክፍል ምሳ ሳጥን"></label>
 <label>ምድብ<select id="category"><option>የምሳ ሳጥኖች</option><option>የወጥ ቤት ዕቃዎች</option><option>የቤት ዕቃዎች</option></select></label>
 <label>ዋጋ<input id="price" required placeholder="450 ብር"></label>
-<label>Image URL<input id="imageUrl" type="url" placeholder="https://..."></label>
+<label class="wide">ፎቶ ይምረጡ
+  <input id="imageFile" type="file" accept="image/*">
+  <div id="imgPreviewWrap" style="display:none;margin-top:10px;display:flex;align-items:center;gap:12px">
+    <img id="imgPreview" style="width:80px;height:65px;object-fit:cover;border-radius:10px;border:1px solid var(--l)">
+    <button type="button" class="btn alt" id="clearImgBtn" style="padding:8px 12px">ፎቶ አስወግድ</button>
+  </div>
+  <div id="imgStatus" class="status"></div>
+</label>
+<label class="wide">ወይም የፎቶ ሊንክ (አማራጭ)<input id="imageUrl" type="url" placeholder="https://..."></label>
 <label class="wide">መግለጫ<textarea id="description" placeholder="ስለ ዕቃው አጭር መግለጫ"></textarea></label>
 <div class="actions wide"><button class="btn" type="submit" id="saveBtn">+ ዕቃ ጨምር</button><button class="btn alt" type="button" id="cancelBtn" style="display:none">መሰረዝ</button></div>
 <div id="formStatus" class="status wide"></div>
@@ -103,6 +111,69 @@ const cancelBtn = document.getElementById("cancelBtn");
 const who = document.getElementById("who");
 
 let editingId = null;
+let pendingImageData = null; // null = untouched, "" = explicitly cleared, string = new data URL
+let currentImageUrl = "";
+
+const imageFile = document.getElementById("imageFile");
+const imgPreview = document.getElementById("imgPreview");
+const imgPreviewWrap = document.getElementById("imgPreviewWrap");
+const imgStatus = document.getElementById("imgStatus");
+const clearImgBtn = document.getElementById("clearImgBtn");
+
+function fileToCompressedDataURL(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+imageFile.addEventListener("change", async () => {
+  const file = imageFile.files[0];
+  if (!file) return;
+  imgStatus.textContent = "ፎቶ በማዘጋጀት ላይ…";
+  imgStatus.className = "status";
+  try {
+    let dataUrl = await fileToCompressedDataURL(file);
+    if (dataUrl.length > 700000) {
+      dataUrl = await fileToCompressedDataURL(file, 650, 0.6);
+    }
+    pendingImageData = dataUrl;
+    imgPreview.src = pendingImageData;
+    imgPreviewWrap.style.display = "flex";
+    imgStatus.textContent = "ፎቶ ተዘጋጅቷል ✓";
+    imgStatus.className = "status success";
+  } catch (err) {
+    console.error(err);
+    imgStatus.textContent = "ፎቶውን ማዘጋጀት አልተቻለም። እባክዎ ሌላ ፎቶ ይሞክሩ።";
+    imgStatus.className = "status error";
+  }
+});
+
+clearImgBtn.addEventListener("click", () => {
+  pendingImageData = "";
+  imageFile.value = "";
+  imageUrl.value = "";
+  imgPreviewWrap.style.display = "none";
+  imgStatus.textContent = "";
+});
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -179,11 +250,17 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formStatus.textContent = "በማስቀመጥ ላይ…";
   formStatus.className = "status";
+  let finalImage;
+  if (pendingImageData !== null) finalImage = pendingImageData;
+  else if (imageUrl.value.trim()) finalImage = imageUrl.value.trim();
+  else if (editingId) finalImage = currentImageUrl;
+  else finalImage = "";
+
   const data = {
     name: name.value.trim(),
     category: category.value,
     price: price.value.trim(),
-    imageUrl: imageUrl.value.trim(),
+    imageUrl: finalImage,
     description: description.value.trim(),
     icon: "🛍️"
   };
@@ -220,8 +297,19 @@ window.editProduct = async function(id) {
     name.value = data.name || "";
     category.value = data.category || "የምሳ ሳጥኖች";
     price.value = data.price || "";
-    imageUrl.value = data.imageUrl || "";
     description.value = data.description || "";
+    pendingImageData = null;
+    currentImageUrl = data.imageUrl || "";
+    imageFile.value = "";
+    if (currentImageUrl) {
+      imgPreview.src = currentImageUrl;
+      imgPreviewWrap.style.display = "flex";
+      imageUrl.value = currentImageUrl.startsWith("data:") ? "" : currentImageUrl;
+    } else {
+      imgPreviewWrap.style.display = "none";
+      imageUrl.value = "";
+    }
+    imgStatus.textContent = "";
     saveBtn.textContent = "ዕቃውን አዘምን";
     cancelBtn.style.display = "";
     window.scrollTo({top: 0, behavior: "smooth"});
@@ -249,6 +337,10 @@ function resetForm() {
   category.value = "የምሳ ሳጥኖች";
   saveBtn.textContent = "+ ዕቃ ጨምር";
   cancelBtn.style.display = "none";
+  pendingImageData = null;
+  currentImageUrl = "";
+  imgPreviewWrap.style.display = "none";
+  imgStatus.textContent = "";
 }
 </script>
 </body>
