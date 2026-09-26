@@ -79,7 +79,7 @@ import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, getDocs, query, orderBy,
+  initializeFirestore, collection, addDoc, getDocs, query, orderBy,
   doc, updateDoc, deleteDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
@@ -97,7 +97,7 @@ const ADMIN_EMAIL = "mohammedseidmusteffa@gmail.com";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 
 const loginView = document.getElementById("loginView");
 const adminView = document.getElementById("adminView");
